@@ -1,0 +1,270 @@
+version: 2
+project: aiops
+owner: zhang.guangmin
+entrypoint: python3 scripts/release/release.py
+
+scm:
+  provider: gogs
+  default_branch: master
+  protected_branches:
+    - master
+
+target:
+  provider: tke
+  cluster_id: cls-demo0000
+  context: cls-demo0000-000000000000-context-default
+  namespace: aiops-demo
+  ingress_class: qcloud
+  registry: registry.example.test/aiops
+
+source:
+  requires_clean_worktree: true
+  requires_independent_worktree: true
+  requires_exact_commit: true
+  target_platform: linux/amd64
+  image_tag_identity: full_release_sha
+  runtime_image_identity: registry_digest
+
+lifecycle:
+  preflight:
+    command: python3 scripts/release/release.py tke-preflight
+    read_only: true
+    checks:
+      - clean_independent_worktree
+      - exact_release_sha
+      - runtime_config_template
+      - frontend_locked_dependencies
+      - docker_daemon
+      - exact_cluster_context
+      - runtime_configmap
+      - runtime_secret_key_names
+      - runtime_rwx_pvc
+
+  candidate:
+    command: python3 scripts/release/release.py tke-candidate
+    approval_required_for_execute: true
+    confirmation_fields:
+      - execute
+      - confirm_release_sha
+    mutates:
+      - tcr_backend
+      - tcr_frontend
+    produces:
+      - backend_digest
+      - frontend_digest
+      - artifact_manifest_sha256
+      - candidate_state
+    persists_registry_credentials: false
+
+  prepare:
+    command: python3 scripts/release/release.py tke-prepare
+    read_only: true
+    checks:
+      - exact_cluster_context
+      - runtime_configmap
+      - runtime_secret_key_names
+      - runtime_rwx_pvc
+
+  rehearse_pull:
+    command: python3 scripts/release/release.py tke-rehearse-pull
+    approval_required_for_execute: true
+    customer_traffic: false
+    temporary_resources:
+      - backend_pull_pod
+      - frontend_pull_pod
+    cleanup_required: true
+    produces:
+      - cluster_pull_proof
+
+  rehearse_mysql:
+    command: python3 scripts/release/release.py tke-rehearse-mysql
+    approval_required_for_execute: true
+    customer_traffic: false
+    temporary_resources:
+      - backend_mysql_rehearsal_pod
+    cleanup_required: true
+    requires:
+      - immutable_candidate
+      - cluster_pull_proof
+      - exact_release_sha_confirmation
+    acceptance:
+      - backend_digest_identity
+      - mysql_session_read_only
+      - mysql_read_only_query
+      - temporary_pod_cleanup
+    produces:
+      - mysql_rehearsal_proof
+
+  rehearse_deploy:
+    command: python3 scripts/release/release.py tke-rehearse-deploy
+    approval_required_for_execute: true
+    customer_traffic: false
+    scheduler_mode: standby
+    renders_ingress: false
+    requires:
+      - immutable_candidate
+      - cluster_pull_proof
+      - mysql_rehearsal_proof
+      - exact_release_sha_confirmation
+    acceptance:
+      - deployment_rollout
+      - pod_image_identities
+      - api_health_probes
+      - frontend_release_identity
+      - frontend_api_proxy
+      - service_endpoints
+      - scheduler_standby
+    produces:
+      - standby_candidate_acceptance
+      - inactive_slot_candidate
+
+  activate:
+    command: python3 scripts/release/release.py tke-activate
+    approval_required_for_execute: true
+    scheduler_mode: active
+    renders_ingress: true
+    requires:
+      - immutable_candidate
+      - cluster_pull_proof
+      - mysql_rehearsal_proof
+      - standby_candidate_acceptance
+      - exact_release_sha_confirmation
+    produces:
+      - active_release_state
+      - active_release_acceptance
+      - active_slot
+
+  accept:
+    command: python3 scripts/release/release.py tke-accept
+    read_only: true
+    requires:
+      - immutable_candidate
+      - cluster_pull_proof
+    checks:
+      - deployment_rollout
+      - pod_image_identities
+      - api_live_startup_ready
+      - frontend_release_identity
+      - frontend_api_proxy
+      - service_endpoints
+      - scheduler_mode
+
+  rollback:
+    command: python3 scripts/release/release.py tke-rollback
+    approval_required_for_execute: true
+    target: previous_recorded_immutable_release
+    manual_image_or_tag_input: false
+    requires:
+      - exact_release_sha_confirmation
+      - recorded_previous_release
+    acceptance_required: true
+
+  cleanup_failed_candidate:
+    command: python3 scripts/release/release.py tke-cleanup-candidate
+    approval_required_for_execute: true
+    customer_traffic: false
+    requires:
+      - exact_release_sha_confirmation
+      - explicit_cleanup_scope
+    blue_green_scope:
+      required_argument: --slot=blue|green
+      rejects_recorded_active_slot: true
+      verifies_stable_services_and_ingress: true
+    legacy_single_slot_scope:
+      required_argument: --legacy-single-slot
+      use: historical_pre_blue_green_candidate_only
+      requires:
+        - no_aiops_ingress
+        - exact_release_sha_on_release_configmap
+        - all_legacy_workloads_present_or_all_absent
+        - exact_kustomize_aiops_pdb_selectors
+    deletes_only:
+      blue_green:
+        - slot_deployments
+        - slot_services
+        - slot_pod_disruption_budgets
+        - slot_release_configmap
+      legacy_single_slot:
+        - proven_unscoped_candidate_deployments
+        - proven_unscoped_candidate_services
+        - proven_unscoped_candidate_pod_disruption_budgets
+        - proven_unscoped_release_configmap
+    never_deletes:
+      - namespace
+      - runtime_pvc_or_cfs
+      - runtime_secret_or_configmap
+      - serviceaccount_rbac_or_networkpolicy
+      - stable_service_or_ingress
+      - tcr_images
+
+pipeline:
+  command: python3 scripts/release/release.py tke-pipeline
+  default_through: standby
+  activation_requires_explicit_through: activate
+  stops_on_first_failure: true
+  automatic_retry: false
+  timing_state: tke-stage-timings.json
+
+runtime:
+  configmap: aiops-runtime-config
+  release_configmaps:
+    - aiops-release-info-blue
+    - aiops-release-info-green
+  secret_reference: aiops-runtime-secrets
+  sensitive_values_persisted: false
+  persistent_volume_claim:
+    name: aiops-runtime-data
+    access_mode: ReadWriteMany
+    required_phase: Bound
+
+traffic:
+  hostname: ops.example.test
+  external_https_termination: true
+  tke_origin_protocol: http
+  changed_by_release_pipeline: false
+  cutover_requires_separate_confirmation: true
+  external_mapping_owner_receives:
+    - clb_ip
+    - port_80
+    - host_header
+    - release_info_path
+    - api_ready_path
+
+fail_closed_on:
+  - dirty_or_primary_worktree
+  - release_sha_mismatch
+  - mutable_or_drifted_image_identity
+  - cluster_context_mismatch
+  - incomplete_rbac
+  - missing_runtime_config_or_secret_keys
+  - missing_or_non_rwx_runtime_pvc
+  - missing_cluster_pull_proof
+  - missing_mysql_rehearsal_proof
+  - missing_standby_candidate_acceptance
+  - cleanup_target_is_recorded_active_slot
+  - cleanup_target_is_stable_service_or_ingress_backend
+  - rollout_or_acceptance_failure
+  - missing_previous_release
+
+required_evidence:
+  - release_sha
+  - source_tree_sha
+  - artifact_manifest_sha256
+  - backend_digest
+  - frontend_digest
+  - cluster_pull_proof
+  - mysql_rehearsal_proof
+  - standby_candidate_acceptance
+  - active_release_acceptance
+  - rollback_acceptance
+
+plane_evidence:
+  writes_to_plane: false
+  redacted_only: true
+  allowed_fields:
+    - release_sha
+    - image_digests
+    - kube_context
+    - manifest_sha256
+    - scheduler_mode
+    - status

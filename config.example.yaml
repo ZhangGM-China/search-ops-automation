@@ -1,0 +1,491 @@
+# --- 系统运行配置 ---
+system_config:
+  health_check_interval_minutes: 60 # 服务健康检查轮询间隔(分钟)
+  no_result_agent_enabled: false # 无结果治理独立 Agent 总开关，品牌开关仍在 brand_configs 中控制
+  no_result_governance_interval_minutes: 15 # 无结果词治理推进轮询间隔(分钟)
+  no_result_governance_cycle_limit: 5 # 无结果词治理每轮最多推进数量
+
+# --- 页面展示配置 ---
+page_config:
+  schemaVersion: 1
+  version: 0
+  values:
+    brand_overview.show_operational_data: true
+    brand_detail.show_query_metrics: true
+
+# --- 系统安全配置 ---
+safety_config:
+  circuit_breaker_threshold: 10  # 接口连续失败熔断阈值
+  max_retry_count: 3             # 接口调用或工作流重试次数
+  api_delay_threshold: 5         # 接口响应延迟告警阈值 (秒)
+  health_check_stale_minutes: 90 # 任务卡死/会话陈旧判定阈值(分钟)
+  health_check_error_rate_threshold_percent: 20 # 最近一小时失败率告警阈值
+  health_check_api_p95_threshold_seconds: 5 # 最近一小时接口 P95 告警阈值(秒)
+
+
+# --- 搜索解析规则 ---
+search_rules:
+  atlas:
+    enable_tag_parsing: true
+    tag_map:
+      "男士": "MAN"
+      "女士": "WOMAN"
+      "儿童": "KID"
+      "家居": "HOME"
+    handle_type: "200"
+    filter_dimension: "gender"
+
+# --- 品牌特定配置 ---
+brand_configs:
+  atlas:
+    enabled: true
+    api_alias: "alias_atlas"
+    table_name: "dwd_query_behavior_daily"
+    top_query_governance_enabled: true
+    top_query_check_product_limit: 8
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 25
+    top_query_tracking_limit_days: 30
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_agent_max_rounds: 3
+    top_query_token_limit: 20000
+    top_query_world_knowledge_config:
+      weather_cities:
+        - city: 上海
+          city_code: 101020100
+      social_trends: []
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+    no_result_governance_enabled: false
+    no_result_extract_limit: 200
+    no_result_search_pv_threshold: 5
+    no_result_excluded_keywords:
+      - 积分
+      - 兑换
+      - 抽奖
+      - 门店
+      - 优惠券
+      - 客服
+      - 订单
+      - 会员
+    no_result_execution_mode: dry_run
+    no_result_search_uv_threshold: 0
+    no_result_auto_max_risk: medium
+    no_result_retag_cooldown_hours: 24
+    no_result_review_wait_minutes: 30
+    no_result_top_n: 16
+    no_result_agent_max_rounds: 4
+    no_result_ignore_ttl_days: 14
+    query_governance_extract_limit: 50
+    query_governance_query_concurrency: 10
+    query_governance_query_min_pv: 5
+    query_governance_candidate_high_pv_limit: 100
+    query_governance_candidate_alert_ctr_gap_pp: 5
+    query_governance_candidate_alert_cvr_gap_pp: 2
+    query_governance_candidate_history_days: 7
+    query_governance_candidate_new_query_pv_threshold: 5
+    query_governance_candidate_pv_growth_ratio_floor: 1.2
+    query_governance_candidate_pv_growth_sqrt_multiplier: 2
+    query_governance_candidate_pv_growth_abs_floor: 5
+    query_governance_preference_top_purchase_product_limit: 8
+    query_governance_preference_top_click_product_limit: 8
+    query_governance_preference_generation_batch_query_limit: 10
+    query_governance_preference_generation_concurrency: 4
+    query_governance_preference_generation_timeout_seconds: 1200
+    query_governance_kg_agent_timeout_seconds: 1200
+    query_governance_kg_reference: >-
+      案例：Query“花衬衫”召回错误商品时，先查询“花衬衫”和“印花衬衫”是否已有标签。若“印花衬衫”是已有根标签，而“花衬衫”只是同一商品实体的用户说法，应新增“花衬衫”非根标签，并建立“花衬衫”→“印花衬衫”的同义关系；不要把它建立为从属关系，也不要重复创建“印花衬衫”根标签。所有名称、ID、维度和关系方向都必须以当前查询结果为准。
+    query_governance_preference_generation_max_completion_tokens: 131072
+    query_governance_reorder_enabled: true
+    query_governance_vector_reorder_concurrency: 10
+    query_governance_vector_reorder_timeout_seconds: 15
+    query_governance_relevance_multimodal_concurrency: 5
+    query_governance_relevance_batch_size: 240
+    query_governance_relevance_request_max_bytes: 20971520
+    query_governance_relevance_model_timeout_seconds: 1200
+    query_governance_relevance_image_download_timeout_seconds: 30
+    query_governance_relevance_max_completion_tokens: 131072
+    query_governance_relevance_blacklist_ratio_threshold: 0.5
+    query_governance_relevance_max_rounds: 3
+    query_governance_relevance_buckets:
+      - productIdsByCode
+      - productIdsByProductNameTag
+      - productIdsByCodeSpellCorrections
+      - productIdsByTagsAll
+      - productIdsByWhiteList
+      - productIdsBySubTag
+      - Dynamic
+  lumen:
+    enabled: true
+    api_alias: "alias_lumen"
+    # Lumen 数据源尚未提供；先开放通用商品/运营接口，保持自动治理关闭。
+    top_query_governance_enabled: false
+    no_result_governance_enabled: false
+    top_query_check_product_limit: 16
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 25
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+  meadow:
+    enabled: false
+    table_name: "dwd_meadow_query_behavior_daily"
+    top_query_governance_enabled: true
+    top_query_check_product_limit: 16
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 50
+    top_query_tracking_limit_days: 30
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_agent_max_rounds: 3
+    top_query_token_limit: 20000
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+    no_result_governance_enabled: false
+    no_result_extract_limit: 200
+    no_result_search_pv_threshold: 5
+    no_result_search_uv_threshold: 0
+    no_result_excluded_keywords:
+      - 积分
+      - 兑换
+      - 抽奖
+      - 门店
+      - 优惠券
+      - 客服
+      - 订单
+      - 会员
+    no_result_execution_mode: dry_run
+    no_result_auto_max_risk: medium
+    no_result_retag_cooldown_hours: 24
+    no_result_review_wait_minutes: 30
+    no_result_top_n: 16
+    no_result_agent_max_rounds: 4
+    no_result_ignore_ttl_days: 14
+
+    top_query_world_knowledge_config:
+      weather_cities:
+        - city: 上海
+          city_code: 101020100
+        - city: 杭州
+          city_code: 101210101
+        - city: 南京
+          city_code: 101190101
+        - city: 苏州
+          city_code: 101190401
+      social_trends: []
+    query_governance_extract_limit: 200
+    query_governance_query_concurrency: 10
+    query_governance_query_min_pv: 5
+    query_governance_candidate_high_pv_limit: 100
+    query_governance_candidate_alert_ctr_gap_pp: 5
+    query_governance_candidate_alert_cvr_gap_pp: 2
+    query_governance_candidate_history_days: 7
+    query_governance_candidate_new_query_pv_threshold: 5
+    query_governance_candidate_pv_growth_ratio_floor: 1.2
+    query_governance_candidate_pv_growth_sqrt_multiplier: 2
+    query_governance_candidate_pv_growth_abs_floor: 5
+    query_governance_preference_top_purchase_product_limit: 8
+    query_governance_preference_top_click_product_limit: 8
+    query_governance_preference_generation_batch_query_limit: 10
+    query_governance_preference_generation_concurrency: 4
+    query_governance_preference_generation_timeout_seconds: 1200
+    query_governance_kg_agent_timeout_seconds: 1200
+    query_governance_preference_generation_max_completion_tokens: 131072
+    query_governance_reorder_enabled: true
+    query_governance_vector_reorder_concurrency: 10
+    query_governance_vector_reorder_timeout_seconds: 15
+    query_governance_relevance_multimodal_concurrency: 5
+    query_governance_relevance_batch_size: 240
+    query_governance_relevance_request_max_bytes: 20971520
+    query_governance_relevance_model_timeout_seconds: 1200
+    query_governance_relevance_image_download_timeout_seconds: 30
+    query_governance_relevance_max_completion_tokens: 131072
+    query_governance_relevance_blacklist_ratio_threshold: 0.5
+    query_governance_relevance_max_rounds: 3
+  harbor:
+    enabled: true
+    api_alias: "vbnmenzb"
+    table_name: "dwd_harbor_query_behavior_daily"
+    top_query_governance_enabled: true
+    top_query_check_product_limit: 8
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 25
+    top_query_tracking_limit_days: 30
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_agent_max_rounds: 3
+    top_query_token_limit: 20000
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+    no_result_governance_enabled: false
+    no_result_extract_limit: 200
+    no_result_search_pv_threshold: 5
+    no_result_excluded_keywords:
+      - 积分
+      - 兑换
+      - 抽奖
+      - 门店
+      - 优惠券
+      - 客服
+      - 订单
+      - 会员
+    no_result_execution_mode: dry_run
+    no_result_search_uv_threshold: 0
+    no_result_auto_max_risk: medium
+    no_result_retag_cooldown_hours: 24
+    no_result_review_wait_minutes: 30
+    no_result_top_n: 16
+    no_result_agent_max_rounds: 4
+    no_result_ignore_ttl_days: 14
+    top_query_world_knowledge_config:
+      weather_cities:
+        - city: 上海
+          city_code: 101020100
+        - city: 杭州
+          city_code: 101210101
+        - city: 南京
+          city_code: 101190101
+        - city: 苏州
+          city_code: 101190401
+      social_trends: []
+    query_governance_extract_limit: 10
+    query_governance_query_concurrency: 10
+    query_governance_query_min_pv: 5
+    query_governance_candidate_high_pv_limit: 100
+    query_governance_candidate_alert_ctr_gap_pp: 5
+    query_governance_candidate_alert_cvr_gap_pp: 2
+    query_governance_candidate_history_days: 7
+    query_governance_candidate_new_query_pv_threshold: 5
+    query_governance_candidate_pv_growth_ratio_floor: 1.2
+    query_governance_candidate_pv_growth_sqrt_multiplier: 2
+    query_governance_candidate_pv_growth_abs_floor: 5
+    query_governance_preference_top_purchase_product_limit: 8
+    query_governance_preference_top_click_product_limit: 8
+    query_governance_preference_generation_batch_query_limit: 10
+    query_governance_preference_generation_concurrency: 4
+    query_governance_preference_generation_timeout_seconds: 1200
+    query_governance_kg_agent_timeout_seconds: 1200
+    query_governance_preference_generation_max_completion_tokens: 131072
+    query_governance_reorder_enabled: false
+    query_governance_vector_reorder_concurrency: 10
+    query_governance_vector_reorder_timeout_seconds: 15
+    query_governance_relevance_multimodal_concurrency: 5
+    query_governance_relevance_batch_size: 240
+    query_governance_relevance_request_max_bytes: 20971520
+    query_governance_relevance_model_timeout_seconds: 1200
+    query_governance_relevance_image_download_timeout_seconds: 30
+    query_governance_relevance_max_completion_tokens: 131072
+    query_governance_relevance_blacklist_ratio_threshold: 0.5
+    query_governance_relevance_max_rounds: 3
+  summit:
+    enabled: true
+    table_name: "dwd_summit_query_behavior_daily"
+    no_result_governance_enabled: true
+    top_query_governance_enabled: true
+    top_query_check_product_limit: 8
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 50
+    top_query_tracking_limit_days: 30
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_agent_max_rounds: 3
+    top_query_token_limit: 20000
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+    no_result_extract_limit: 200
+    no_result_search_pv_threshold: 5
+    no_result_search_uv_threshold: 0
+    no_result_excluded_keywords:
+      - 积分
+      - 兑换
+      - 抽奖
+      - 门店
+      - 优惠券
+      - 客服
+      - 订单
+      - 会员
+    no_result_execution_mode: dry_run
+    no_result_auto_max_risk: medium
+    no_result_retag_cooldown_hours: 24
+    no_result_review_wait_minutes: 30
+    no_result_top_n: 16
+    no_result_agent_max_rounds: 4
+    no_result_ignore_ttl_days: 14
+
+    top_query_world_knowledge_config:
+      weather_cities:
+        - city: 上海
+          city_code: 101020100
+        - city: 杭州
+          city_code: 101210101
+        - city: 南京
+          city_code: 101190101
+        - city: 苏州
+          city_code: 101190401
+      social_trends: []
+    query_governance_extract_limit: 10
+    query_governance_query_concurrency: 10
+    query_governance_reorder_enabled: false
+    query_governance_query_min_pv: 5
+    query_governance_candidate_high_pv_limit: 100
+    query_governance_candidate_alert_ctr_gap_pp: 5
+    query_governance_candidate_alert_cvr_gap_pp: 2
+    query_governance_candidate_history_days: 7
+    query_governance_candidate_new_query_pv_threshold: 5
+    query_governance_candidate_pv_growth_ratio_floor: 1.2
+    query_governance_candidate_pv_growth_sqrt_multiplier: 2
+    query_governance_candidate_pv_growth_abs_floor: 5
+    query_governance_preference_top_purchase_product_limit: 8
+    query_governance_preference_top_click_product_limit: 8
+    query_governance_preference_generation_batch_query_limit: 10
+    query_governance_preference_generation_concurrency: 4
+    query_governance_preference_generation_timeout_seconds: 1200
+    query_governance_kg_agent_timeout_seconds: 1200
+    query_governance_preference_generation_max_completion_tokens: 131072
+    query_governance_vector_reorder_concurrency: 10
+    query_governance_vector_reorder_timeout_seconds: 15
+    query_governance_relevance_multimodal_concurrency: 5
+    query_governance_relevance_batch_size: 240
+    query_governance_relevance_request_max_bytes: 20971520
+    query_governance_relevance_model_timeout_seconds: 1200
+    query_governance_relevance_image_download_timeout_seconds: 30
+    query_governance_relevance_max_completion_tokens: 131072
+    query_governance_relevance_blacklist_ratio_threshold: 0.5
+    query_governance_relevance_max_rounds: 3
+  riviera:
+    enabled: true
+    api_alias: "lxptkkhe"
+    table_name: "rl_keyword_daily"
+    top_query_governance_enabled: true
+    top_query_check_product_limit: 8
+    top_query_low_result_threshold: 5
+    top_query_result_drop_threshold: 0.3
+    top_query_inventory_broken_rate_threshold: 25
+    top_query_tracking_limit_days: 30
+    top_query_inventory_check_interval_minutes: 60
+    top_query_inventory_max_cycles: 3
+    top_query_agent_max_rounds: 3
+    top_query_token_limit: 20000
+    top_query_check_modes:
+      recall: human_approval
+      relevance: auto
+      open_factor: auto
+      inventory: auto
+    top_query_tool_modes:
+      product_blacklist: auto
+      query_demote: auto
+      tag_bucket_config: auto
+      kg_tag: human_approval
+      kg_relation: human_approval
+      query_reorder: auto
+    no_result_governance_enabled: false
+    no_result_extract_limit: 200
+    no_result_search_pv_threshold: 5
+    no_result_search_uv_threshold: 0
+    no_result_excluded_keywords:
+      - 积分
+      - 兑换
+      - 抽奖
+      - 门店
+      - 优惠券
+      - 客服
+      - 订单
+      - 会员
+    no_result_execution_mode: dry_run
+    no_result_auto_max_risk: medium
+    no_result_retag_cooldown_hours: 24
+    no_result_review_wait_minutes: 30
+    no_result_top_n: 16
+    no_result_agent_max_rounds: 4
+    no_result_ignore_ttl_days: 14
+    top_query_world_knowledge_config:
+      weather_cities:
+        - city: 上海
+          city_code: 101020100
+      social_trends: []
+    query_governance_extract_limit: 10
+    query_governance_query_concurrency: 10
+    query_governance_query_min_pv: 5
+    query_governance_candidate_high_pv_limit: 100
+    query_governance_candidate_alert_ctr_gap_pp: 5
+    query_governance_candidate_alert_cvr_gap_pp: 2
+    query_governance_candidate_history_days: 7
+    query_governance_candidate_new_query_pv_threshold: 5
+    query_governance_candidate_pv_growth_ratio_floor: 1.2
+    query_governance_candidate_pv_growth_sqrt_multiplier: 2
+    query_governance_candidate_pv_growth_abs_floor: 5
+    query_governance_preference_top_purchase_product_limit: 8
+    query_governance_preference_top_click_product_limit: 8
+    query_governance_preference_generation_batch_query_limit: 10
+    query_governance_preference_generation_concurrency: 4
+    query_governance_preference_generation_timeout_seconds: 1200
+    query_governance_kg_agent_timeout_seconds: 1200
+    query_governance_preference_generation_max_completion_tokens: 131072
+    query_governance_reorder_enabled: false
+    query_governance_vector_reorder_concurrency: 10
+    query_governance_vector_reorder_timeout_seconds: 15
+    query_governance_relevance_multimodal_concurrency: 5
+    query_governance_relevance_batch_size: 240
+    query_governance_relevance_request_max_bytes: 20971520
+    query_governance_relevance_model_timeout_seconds: 1200
+    query_governance_relevance_image_download_timeout_seconds: 30
+    query_governance_relevance_max_completion_tokens: 131072
+    query_governance_relevance_blacklist_ratio_threshold: 0.5
+    query_governance_relevance_max_rounds: 3

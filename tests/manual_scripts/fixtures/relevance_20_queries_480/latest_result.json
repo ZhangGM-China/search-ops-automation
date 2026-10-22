@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "model": "qwen3.6-plus",
+  "query_count": 10,
+  "products_per_query": 24,
+  "total_products": 240,
+  "queries": [
+    "连衣裙",
+    "连衣裙 女士",
+    "ZW系列 女士",
+    "吊带 女士",
+    "牛仔裤 女士",
+    "香水 女士",
+    "刺绣 女士",
+    "外套 女士",
+    "上衣 女士",
+    "蕾丝 女士"
+  ],
+  "fixture": {
+    "dir": "/Users/mac/work/项目合集/aiops/tests/manual_scripts/fixtures/relevance_20_queries_480",
+    "mixed_fetch_seconds": 0.0,
+    "image_prepare_seconds": 0.084,
+    "image_available_count": 240
+  },
+  "model_request": {
+    "seconds": 206.624,
+    "error": null,
+    "error_message": null,
+    "parse": {
+      "valid": true,
+      "error": null,
+      "result_count": 240,
+      "valid_item_count": 240,
+      "duplicate_item_id_count": 0
+    },
+    "input_tokens": 231084,
+    "output_tokens": 26226,
+    "total_tokens": 257310,
+    "request_message_chars_with_images": 11338787
+  },
+  "langfuse_trace_url": "http://langfuse.example.test/project/cmt17k6f300hiuo07uaj5jeca/traces/e929ee29089667f6ff2e8ba03e42be1e",
+  "script_total_seconds": 207.739
+}

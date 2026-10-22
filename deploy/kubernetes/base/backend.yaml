@@ -1,0 +1,236 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: aiops-demo
+  labels:
+    app.kubernetes.io/name: backend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: aiops
+    spec:
+      serviceAccountName: aiops-runtime
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        aiops.example.test/runtime: shared
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: runtime-data
+          persistentVolumeClaim:
+            claimName: aiops-runtime-data
+            readOnly: false
+        - name: runtime-config
+          configMap:
+            name: aiops-runtime-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: registry.example.test/aiops/backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: aiops-release-info
+            - secretRef:
+                name: aiops-runtime-secrets
+                optional: false
+            - secretRef:
+                name: qg-image-assets
+                optional: false
+          env:
+            - name: PI_AGENT_RUNTIME_URL
+              value: http://127.0.0.1:8124
+            - name: PI_AGENT_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aiops-runtime-secrets
+                  key: PI_AGENT_INTERNAL_TOKEN
+                  optional: false
+            - name: QG_BROWSER_BRIDGE_URL
+              value: http://qg-atlas-browser-worker.aiops-demo.svc.cluster.local:8790
+            - name: QG_BROWSER_BRIDGE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: qg-atlas-browser-worker
+                  key: bridge-token
+                  optional: false
+            - name: RELEASE_SHA
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: RELEASE_SHA
+            - name: SCHEMA_RELEASE
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: SCHEMA_RELEASE
+            - name: ARTIFACT_MANIFEST_SHA256
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: ARTIFACT_MANIFEST_SHA256
+            - name: AIOPS_CONFIG_PATH
+              value: /app/runtime-config/config.yaml
+            - name: AIOPS_CONFIG_PERSISTENCE
+              value: kubernetes_configmap
+            - name: AIOPS_CONFIGMAP_NAME
+              value: aiops-runtime-config
+            - name: AIOPS_CONFIGMAP_NAMESPACE
+              value: aiops-demo
+            - name: BUSINESS_HTTP_STATE_DIR
+              value: /app/data/runtime/business_http
+            - name: TOP_QUERY_TASK_LOCK_DIR
+              value: /app/data/runtime/top_query_task_locks
+            - name: LANGFUSE_BASE_URL
+              value: http://langfuse.example.test
+            - name: LANGFUSE_TRACING_ENABLED
+              value: "true"
+            - name: QUERY_GOVERNANCE_IMAGE_PROXY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aiops-runtime-secrets
+                  key: QUERY_GOVERNANCE_IMAGE_PROXY_URL
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/health/startup
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: runtime-data
+              mountPath: /app/data
+            - name: runtime-config
+              mountPath: /app/runtime-config
+              readOnly: true
+        - name: pi-runtime
+          image: registry.example.test/aiops/backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/pi-runtime
+          command:
+          - node
+          - src/server.mjs
+          env:
+          - name: PI_RUNTIME_HOST
+            value: 127.0.0.1
+          - name: PI_RUNTIME_PORT
+            value: '8124'
+          - name: PI_AGENT_WORKDIR
+            value: /tmp
+          - name: PI_AGENT_DIR
+            value: /tmp/pi-agent
+          - name: HOME
+            value: /tmp
+          - name: KG_AGENT_MCP_URL
+            value: https://mcphub.example.test/mcp/kg_agent_mcp
+          - name: KG_AGENT_MCP_ENVIRONMENT
+            value: production
+          - name: PI_KG_ONLY
+            value: 'true'
+          - name: PI_AGENT_INTERNAL_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: aiops-runtime-secrets
+                key: PI_AGENT_INTERNAL_TOKEN
+                optional: false
+          - name: KG_AGENT_MCP_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: aiops-runtime-secrets
+                key: KG_AGENT_MCP_TOKEN
+                optional: false
+          readinessProbe:
+            exec: &id001
+              command:
+              - node
+              - src/healthcheck.mjs
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+              - node
+              - src/healthcheck.mjs
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          startupProbe:
+            exec: *id001
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: '1'
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp

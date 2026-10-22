@@ -1,0 +1,235 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: aiops-demo
+  labels:
+    app.kubernetes.io/name: scheduler
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scheduler
+        app.kubernetes.io/part-of: aiops
+    spec:
+      serviceAccountName: aiops-runtime
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 120
+      nodeSelector:
+        aiops.example.test/runtime: shared
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: runtime-data
+          persistentVolumeClaim:
+            claimName: aiops-runtime-data
+            readOnly: false
+        - name: runtime-config
+          configMap:
+            name: aiops-runtime-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: scheduler
+          image: registry.example.test/aiops/backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          command: ["python", "main.py"]
+          envFrom:
+            - configMapRef:
+                name: aiops-release-info
+            - secretRef:
+                name: aiops-runtime-secrets
+                optional: false
+            - secretRef:
+                name: qg-image-assets
+                optional: false
+          env:
+            - name: PI_AGENT_RUNTIME_URL
+              value: http://127.0.0.1:8124
+            - name: PI_AGENT_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aiops-runtime-secrets
+                  key: PI_AGENT_INTERNAL_TOKEN
+                  optional: false
+            - name: QG_BROWSER_BRIDGE_URL
+              value: http://qg-atlas-browser-worker.aiops-demo.svc.cluster.local:8790
+            - name: QG_BROWSER_BRIDGE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: qg-atlas-browser-worker
+                  key: bridge-token
+                  optional: false
+            - name: RELEASE_SHA
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: RELEASE_SHA
+            - name: SCHEMA_RELEASE
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: SCHEMA_RELEASE
+            - name: ARTIFACT_MANIFEST_SHA256
+              valueFrom:
+                configMapKeyRef:
+                  name: aiops-release-info
+                  key: ARTIFACT_MANIFEST_SHA256
+            - name: AIOPS_CONFIG_PATH
+              value: /app/runtime-config/config.yaml
+            - name: AIOPS_CONFIG_PERSISTENCE
+              value: kubernetes_configmap
+            - name: AIOPS_CONFIGMAP_NAME
+              value: aiops-runtime-config
+            - name: AIOPS_CONFIGMAP_NAMESPACE
+              value: aiops-demo
+            - name: AIOPS_SCHEDULER_MODE
+              value: active
+            - name: SCHEDULER_EXPECTED_MODE
+              value: active
+            - name: SCHEDULER_RUNTIME_DIR
+              value: /tmp/aiops-scheduler
+            - name: SCHEDULER_STATUS_FILE
+              value: /tmp/aiops-scheduler/scheduler-status.json
+            - name: BUSINESS_HTTP_STATE_DIR
+              value: /app/data/runtime/business_http
+            - name: TOP_QUERY_TASK_LOCK_DIR
+              value: /app/data/runtime/top_query_task_locks
+            - name: LANGFUSE_BASE_URL
+              value: http://langfuse.example.test
+            - name: LANGFUSE_TRACING_ENABLED
+              value: "true"
+            - name: QUERY_GOVERNANCE_IMAGE_PROXY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aiops-runtime-secrets
+                  key: QUERY_GOVERNANCE_IMAGE_PROXY_URL
+                  optional: true
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import json, os, pathlib, time; value=json.loads(pathlib.Path(os.environ['SCHEDULER_STATUS_FILE']).read_text()); raise SystemExit(0 if value.get('pid') == 1 and value.get('state') not in ('failed', 'rejected') and 0 <= time.time() - value.get('updatedAt', 0) < 180 else 1)"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["python", "-c", "import json, os, pathlib, time; value=json.loads(pathlib.Path(os.environ['SCHEDULER_STATUS_FILE']).read_text()); raise SystemExit(0 if value.get('ready') is True and value.get('mode') == os.environ.get('SCHEDULER_EXPECTED_MODE') and value.get('pid') == 1 and 0 <= time.time() - value.get('updatedAt', 0) < 60 else 1)"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command: ["python", "-c", "import pathlib; raise SystemExit(0 if pathlib.Path('/proc/1/cmdline').read_bytes().split(b'\\0')[1:2] == [b'main.py'] else 1)"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: runtime-data
+              mountPath: /app/data
+            - name: runtime-config
+              mountPath: /app/runtime-config
+              readOnly: true
+        - name: pi-runtime
+          image: registry.example.test/aiops/backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/pi-runtime
+          command:
+          - node
+          - src/server.mjs
+          env:
+          - name: PI_RUNTIME_HOST
+            value: 127.0.0.1
+          - name: PI_RUNTIME_PORT
+            value: '8124'
+          - name: PI_AGENT_WORKDIR
+            value: /tmp
+          - name: PI_AGENT_DIR
+            value: /tmp/pi-agent
+          - name: HOME
+            value: /tmp
+          - name: KG_AGENT_MCP_URL
+            value: https://mcphub.example.test/mcp/kg_agent_mcp
+          - name: KG_AGENT_MCP_ENVIRONMENT
+            value: production
+          - name: PI_KG_ONLY
+            value: 'true'
+          - name: PI_AGENT_INTERNAL_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: aiops-runtime-secrets
+                key: PI_AGENT_INTERNAL_TOKEN
+                optional: false
+          - name: KG_AGENT_MCP_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: aiops-runtime-secrets
+                key: KG_AGENT_MCP_TOKEN
+                optional: false
+          readinessProbe:
+            exec: &id001
+              command:
+              - node
+              - src/healthcheck.mjs
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+              - node
+              - src/healthcheck.mjs
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          startupProbe:
+            exec: *id001
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: '1'
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp

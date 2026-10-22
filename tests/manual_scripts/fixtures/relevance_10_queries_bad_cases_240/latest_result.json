@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "model": "qwen3.7-plus",
+  "gateway": "https://api-hub.example.test/v1",
+  "query_count": 10,
+  "total_products": 240,
+  "image_count": 240,
+  "image_mode": "inline",
+  "model_seconds": 363.884,
+  "input_tokens": 193825,
+  "output_tokens": 18544,
+  "total_tokens": 212369,
+  "error": null,
+  "error_message": null,
+  "quality": {
+    "valid": true,
+    "error": null,
+    "query_group_count": 10,
+    "result_count": 240,
+    "valid_item_count": 240,
+    "duplicate_product_key_count": 0,
+    "invalid_product_count": 0,
+    "image_checked_mismatch_count": 0,
+    "bad_case_count": 10,
+    "bad_case_detected_count": 10,
+    "bad_case_recall": 1.0,
+    "bad_case_ids_not_detected": [],
+    "normal_product_count": 230,
+    "normal_false_positive_count": 7
+  },
+  "fixture_dir": "/Users/mac/work/项目合集/aiops/tests/manual_scripts/fixtures/relevance_10_queries_bad_cases_240",
+  "langfuse_trace_url": "http://langfuse.example.test/project/cmt17k6f300hiuo07uaj5jeca/traces/a03d68a6a4f596e3ca0f8f70052994e4"
+}

@@ -1,0 +1,22 @@
+{
+  "success": false,
+  "model": "qwen3.8-max",
+  "gateway": "token-plan.cn-beijing.maas.aliyuncs.com",
+  "query_count": 20,
+  "products_per_query": 24,
+  "total_products": 480,
+  "image_available_count": 461,
+  "model_seconds": 196.308,
+  "input_tokens": null,
+  "output_tokens": null,
+  "total_tokens": null,
+  "parse": {
+    "valid": false,
+    "error": "results_not_list",
+    "result_count": 0
+  },
+  "error": "APIStatusError",
+  "error_message": "Error code: 413 - {'error': {'message': 'Request body size exceeds maximum allowed sized', 'id': '8ca97430-b8a8-4f75-b59c-9653b348c953', 'type': 'RequestTooLarge', 'code': 'RequestTooLarge'}}",
+  "request_body_chars": 21045134,
+  "langfuse_trace_url": "http://langfuse.example.test/project/cmt17k6f300hiuo07uaj5jeca/traces/3c1e9bd61e9d0d2231e157f02566b9e5"
+}

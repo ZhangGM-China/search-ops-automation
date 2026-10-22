@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aiops-demo
+resources:
+  - deployment.yaml
+  - service.yaml
+  - network-policy.yaml
+
+# Replace this with an immutable digest from the approved image registry before
+# any online deployment. The image is deliberately not part of the AIOPS main
+# Backend/Scheduler release.
+images:
+  - name: atlas-browser-worker
+    newName: registry.example.test/aiops/atlas-browser-worker
+    newTag: REPLACE_WITH_IMMUTABLE_TAG

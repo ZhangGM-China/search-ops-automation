@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  xiaohongshu-mcp:
+    image: registry.example.test/xpzouying/xiaohongshu-mcp@sha256:39bb7d0196ad76dd9c1da60630acd904ca472df1a3be42a5ffad8a66420d5bc6
+    container_name: search-ops-xiaohongshu-mcp
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    environment:
+      ROD_BROWSER_BIN: /usr/local/bin/cloak-chromium
+      COOKIES_PATH: /app/data/cookies.json
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
+      XDG_CONFIG_HOME: /app/data/config
+    volumes:
+      - ./data/xiaohongshu-mcp:/app/data
+    ports:
+      - "127.0.0.1:18060:18060"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18060/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 后端服务 1：自动化调度器
+  scheduler:
+    build: .
+    container_name: search-ops-scheduler
+    restart: always
+    user: "${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    env_file:
+      - .env
+    environment:
+      XIAOHONGSHU_MCP_BASE_URL: http://xiaohongshu-mcp:18060
+      XIAOHONGSHU_MCP_ENABLED: ${XIAOHONGSHU_MCP_ENABLED:-true}
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    # 默认命令即执行 main.py 启动 apscheduler
+    command: python main.py
+    stop_grace_period: 120s
+    healthcheck:
+      test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -Eq 'python(3)? .*main.py'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 后端服务 2：FastAPI 接口
+  api:
+    build: .
+    container_name: search-ops-api
+    restart: always
+    user: "${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    env_file:
+      - .env
+    environment:
+      XIAOHONGSHU_MCP_BASE_URL: http://xiaohongshu-mcp:18060
+      XIAOHONGSHU_MCP_ENABLED: ${XIAOHONGSHU_MCP_ENABLED:-true}
+      PI_AGENT_RUNTIME_URL: http://pi-runtime:8124
+      AIOPS_INTERNAL_API_URL: http://api:8000
+      PI_AGENT_INTERNAL_TOKEN: ${PI_AGENT_INTERNAL_TOKEN:-local-pi-runtime}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    # 覆盖默认的启动命令为 Uvicorn
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000 --no-access-log
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    expose:
+      - "8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PI Agent SDK runtime（项目内 Node SDK，不使用 PI CLI）
+  pi-runtime:
+    build: ./pi-runtime
+    container_name: search-ops-pi-runtime
+    restart: always
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    environment:
+      PI_RUNTIME_HOST: 0.0.0.0
+      PI_RUNTIME_PORT: 8124
+      PI_AGENT_INTERNAL_TOKEN: ${PI_AGENT_INTERNAL_TOKEN:-local-pi-runtime}
+      KG_AGENT_MCP_URL: ${KG_AGENT_MCP_URL:-https://mcphub.example.test/mcp/kg_agent_mcp}
+      KG_AGENT_MCP_TOKEN: ${KG_AGENT_MCP_TOKEN:-}
+      KG_AGENT_MCP_ENVIRONMENT: ${KG_AGENT_MCP_ENVIRONMENT:-production}
+      AIOPS_INTERNAL_API_URL: http://api:8000
+      PI_AGENT_WORKDIR: /app/workspace
+      PI_AGENT_SESSION_DIR: /app/workspace/.pi/assistant-sessions
+    volumes:
+      - ./data:/app/workspace/data
+      - ./data/pi-runtime-workspace:/app/workspace/.pi
+    depends_on:
+      - api
+    expose:
+      - "8124"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8124/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 前端服务：Nginx 托管和反代
+  frontend:
+    build: ./frontend
+    container_name: search-ops-frontend
+    restart: always
+    user: "101:101"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    ports:
+      - "9000:8080"
+    depends_on:
+      - api
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

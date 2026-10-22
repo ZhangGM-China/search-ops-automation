@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aiops-release-info
+  namespace: aiops-demo
+data:
+  ENV: prod
+  RELEASE_SHA: ""
+  SCHEMA_RELEASE: ""
+  ARTIFACT_MANIFEST_SHA256: ""
+  XIAOHONGSHU_MCP_ENABLED: "false"

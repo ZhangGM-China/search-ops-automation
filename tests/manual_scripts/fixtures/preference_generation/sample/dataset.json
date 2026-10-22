@@ -1,0 +1,74 @@
+{
+  "fixture_version": 1,
+  "brand": "atlas",
+  "evidence_source": "behavior_sql_snapshot",
+  "data_date": "2026-08-30",
+  "queries": [
+    {
+      "query": "连衣裙 女士",
+      "ranking_eligible": true,
+      "ctr": 0.012,
+      "historical_ctr": 0.021,
+      "cvr": 0.001,
+      "historical_cvr": 0.002,
+      "shared_context": {
+        "season": "夏季",
+        "weather": "高温",
+        "holiday": null
+      },
+      "brand_context": {
+        "summary": "轻盈剪裁与简约风格"
+      },
+      "products": [
+        {
+          "product_id": "SAMPLE-ATLAS-001",
+          "click_rank": 1,
+          "purchase_rank": 2,
+          "current_rank": 8,
+          "product_name": "轻盈棉质连衣裙",
+          "category": "连衣裙",
+          "color": "白色",
+          "material": "棉"
+        },
+        {
+          "product_id": "SAMPLE-ATLAS-002",
+          "click_rank": 2,
+          "purchase_rank": null,
+          "current_rank": 11,
+          "product_name": "垂坠感缎面连衣裙",
+          "category": "连衣裙",
+          "color": "黑色",
+          "material": "聚酯纤维"
+        }
+      ]
+    },
+    {
+      "query": "亚麻 女士",
+      "ranking_eligible": false,
+      "ctr": 0.031,
+      "historical_ctr": 0.029,
+      "cvr": 0.003,
+      "historical_cvr": 0.003,
+      "shared_context": {
+        "season": "夏季",
+        "weather": "高温",
+        "holiday": null
+      },
+      "brand_context": {
+        "summary": "轻盈剪裁与简约风格"
+      },
+      "products": [
+        {
+          "product_id": "SAMPLE-ATLAS-003",
+          "click_rank": 1,
+          "purchase_rank": 1,
+          "current_rank": 2,
+          "product_name": "亚麻混纺衬衫",
+          "category": "衬衫",
+          "color": "米色",
+          "material": "亚麻"
+        }
+      ]
+    }
+  ]
+}

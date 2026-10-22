@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: qg-atlas-browser-worker
+  labels:
+    app.kubernetes.io/name: qg-atlas-browser-worker
+    app.kubernetes.io/part-of: aiops-image-sync
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: qg-atlas-browser-worker
+  ports:
+    - name: http
+      port: 8790
+      targetPort: http

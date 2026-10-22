@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "platforms": {
+    "darwin/arm64": {
+      "dockerSbom": {
+        "version": "0.6.0",
+        "provider": "syft 0.43.0",
+        "sha256": "2e43380ab4757417222247a383632a010ecb4337e7ca0253d2478db274453506"
+      },
+      "dockerScout": {
+        "version": "v1.20.3",
+        "sha256": "63cb2e037585b6183616b9e41e6bb8b623bc61ad0d65eb73e38fcf087e8b9369"
+      }
+    }
+  }
+}

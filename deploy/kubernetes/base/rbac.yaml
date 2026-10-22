@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aiops-runtime
+  namespace: aiops-demo
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["aiops-runtime-config"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["aiops-release-info-blue", "aiops-release-info-green"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aiops-runtime
+  namespace: aiops-demo
+subjects:
+  - kind: ServiceAccount
+    name: aiops-runtime
+    namespace: aiops-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aiops-runtime

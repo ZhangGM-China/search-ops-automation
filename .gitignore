@@ -1,0 +1,92 @@
+# Python bytecode, test state, and coverage output
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Python packaging and local environments
+build/
+dist/
+*.egg-info/
+*.egg
+venv/
+.venv/
+env/
+ENV/
+
+# Node dependencies and generated frontend artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/coverage/
+frontend/coverage-analysis/
+test-results/
+*.tsbuildinfo
+
+# Local runtime state and logs
+*.log
+logs/
+data/runtime/
+data/*.db
+data/*-wal
+data/*-shm
+data/local_db/*.db
+data/local_db/*-wal
+data/local_db/*-shm
+!data/local_db/.gitkeep
+# Test configuration resolves some runtime files below src/data/.
+# Ignore only generated runtime/database artifacts so tracked source data stays visible.
+src/data/runtime/
+src/data/local_db/*.db
+src/data/local_db/*-wal
+src/data/local_db/*-shm
+output/
+outputs/
+
+# Host-specific configuration and local assistant settings
+.env
+.env.local
+config.yaml
+.claude/
+.gemini/
+.agents/
+.codex/*
+!.codex/environments/
+.codex/environments/*
+!.codex/environments/environment.toml
+
+# Operating-system and editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# Local one-off artifacts that must not become project content
+*.exp
+.tmp/
+.worktrees/
+ISSUES_*.md
+
+# Sensitive reference documents remain outside Git pending separate governance
+/docs/TSD/03-数据存储设计.md
+/docs/api/01-外部业务系统接口.md
+/docs/api/02-外部模型与第三方依赖.md
+/docs/api/05-Summit专用接口.md
+/docs/api/09-知识图谱系统接口.md
+# PI Agent runtime state is local-only; credentials and sessions must never be versioned.
+.pi/agent/
+.pi/assistant-sessions/

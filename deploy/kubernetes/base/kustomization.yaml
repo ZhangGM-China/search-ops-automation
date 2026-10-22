@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aiops-demo
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: aiops
+      app.kubernetes.io/managed-by: kustomize
+resources:
+  - namespace.yaml
+  - service-account.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - backend.yaml
+  - frontend.yaml
+  - scheduler.yaml
+  - services.yaml
+  - ingress.yaml
+  - network-policy.yaml
+  - pdb.yaml

@@ -1,0 +1,23 @@
+{
+  "success": false,
+  "model": "qwen3.8-max",
+  "gateway": "token-plan.cn-beijing.maas.aliyuncs.com",
+  "query_count": 10,
+  "total_products": 240,
+  "image_available_count": 240,
+  "model_seconds": 688.176,
+  "input_tokens": null,
+  "output_tokens": null,
+  "total_tokens": null,
+  "quality": {
+    "valid": false,
+    "error": "results_not_list",
+    "result_count": 0,
+    "bad_case_count": 10,
+    "bad_case_detected_count": 0
+  },
+  "error": "APITimeoutError",
+  "error_message": "Request timed out.",
+  "request_body_chars": 11309237,
+  "langfuse_trace_url": "http://langfuse.example.test/project/cmt17k6f300hiuo07uaj5jeca/traces/fe0d431899bfcf1a34af71d1bf1e8d67"
+}
